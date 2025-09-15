@@ -1,4 +1,3 @@
-
 import re
 import os
 
@@ -67,6 +66,9 @@ if __name__ == '__main__':
     sentences = split_into_sentences(first_review)
     for idx, sentence in enumerate(sentences):
         print(f"\nSentence {idx+1}: \"{sentence}\"")
+        # Total sentiment score for the sentence
+        sentence_score = sum(afinn_dict.get(word.lower(), 0) for word in sentence.split())
+        print(f"  Total sentence sentiment score: {sentence_score}")
         window_results = sliding_window_sentiment_single_sentence(sentence, afinn_dict, window_size=3)
         for res in window_results:
             print(f"  Window {res['start']}-{res['end']}: {res['window']} -> Score: {res['score']}")
