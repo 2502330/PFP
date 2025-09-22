@@ -28,6 +28,12 @@ print(f'loaded {total_reviews} reviews')
 # Sentiment analysis
 for id in movies.keys():
     analysis = [analyze(review, sentiments) for review in movies[id]['reviews']]
+    
+    for review_analysis in analysis:
+        # Print or log the most positive and negative paragraphs for debugging
+        print(f"Most Positive Paragraph: {review_analysis['most_pos_paragraph']}")
+        print(f"Most Negative Paragraph: {review_analysis['most_neg_paragraph']}")    
+
     movies[id]['analysis'] = analysis
 
 # Write to results.json
