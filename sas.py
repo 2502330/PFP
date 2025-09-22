@@ -47,35 +47,33 @@ def analyze(review, sentiments):
     paragraphs = []
     paragraph_size = min(3, len(sentences))
 
-    # Paragraph scoring with arbitrary length
-    most_pos_paragraph = []
-    most_neg_paragraph = []
-    most_pos_paragraph_score = float('-inf')
-    most_neg_paragraph_score = float('inf')
-
-    # Original fixed-size paragraph scoring
     for i in range(len(sentences) - paragraph_size + 1):
         paragraph = sentences[i:i+paragraph_size]
         paragraph_score = sum([sentence_scores[sentence] for sentence in paragraph])
         paragraphs.append([paragraph, paragraph_score])
 
-    # Paragraph scoring with variable length
-    for start in range(len(sentences)):
-        current_score = 0
-        for end in range(start, len(sentences)):
-            current_score += sentence_scores[sentences[end]]
-            if current_score > most_pos_paragraph_score:
-                most_pos_paragraph_score = current_score
-                most_pos_paragraph = sentences[start:end + 1]
-            if current_score < most_neg_paragraph_score:
-                most_neg_paragraph_score = current_score
-                most_neg_paragraph = sentences[start:end + 1]
-
     # Find most positive and negative paragraphs
     most_pos_paragraph, most_pos_paragraph_score = max(paragraphs, key=lambda x: x[1])
     most_neg_paragraph, most_neg_paragraph_score = min(paragraphs, key=lambda x: x[1])
 
-    # print(f'sentence scores: {sentence_scores}\ntotal score: {total_score}\nmost pos sentence ({most_pos_sentence_score}): {most_pos_sentence}\nmost neg sentence ({most_neg_sentence_score}): {most_neg_sentence}\nmost pos paragraph ({most_pos_paragraph_score}): {most_pos_paragraph}\nmost neg paragraph ({most_neg_paragraph_score}): {most_neg_paragraph}\n')
+    # Segment scoring with arbitrary length
+    most_pos_segment = []
+    most_neg_segment = []
+    most_pos_segment_score = float('-inf')
+    most_neg_segment_score = float('inf')
+
+    for start in range(len(sentences)):
+        current_score = 0
+        for end in range(start, len(sentences)):
+            current_score += sentence_scores[sentences[end]]
+            if current_score > most_pos_segment_score:
+                most_pos_segment_score = current_score
+                most_pos_segment = sentences[start:end + 1]
+            if current_score < most_neg_segment_score:
+                most_neg_segment_score = current_score
+                most_neg_segment = sentences[start:end + 1]
+
+    print(f'sentence scores: {sentence_scores}\ntotal score: {total_score}\nmost pos sentence ({most_pos_sentence_score}): {most_pos_sentence}\nmost neg sentence ({most_neg_sentence_score}): {most_neg_sentence}\nmost pos paragraph ({most_pos_paragraph_score}): {most_pos_paragraph}\nmost neg paragraph ({most_neg_paragraph_score}): {most_neg_paragraph}\nmost pos segment ({most_pos_segment_score}): {most_pos_segment}\nmost neg segment ({most_neg_segment_score}): {most_neg_segment}')
 
     return {
         # 'review': review,
@@ -84,4 +82,6 @@ def analyze(review, sentiments):
         'most_neg_sentence': most_neg_sentence,
         'most_pos_paragraph': most_pos_paragraph,
         'most_neg_paragraph': most_neg_paragraph,
+        'most_pos_segment': most_pos_segment,
+        'most_neg_segment': most_neg_segment,
     }
