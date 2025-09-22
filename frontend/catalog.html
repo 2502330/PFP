@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+        <meta name="description" content="" />
+        <meta name="author" content="" />
+        <title>Clean Blog - Start Bootstrap Theme</title>
+        <link rel="icon" type="image/x-icon" href="assets/favicon.ico" />
+        <!-- Font Awesome icons (free version)-->
+        <script src="https://use.fontawesome.com/releases/v6.3.0/js/all.js" crossorigin="anonymous"></script>
+        <!-- Google fonts-->
+        <link href="https://fonts.googleapis.com/css?family=Lora:400,700,400italic,700italic" rel="stylesheet" type="text/css" />
+        <link href="https://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800" rel="stylesheet" type="text/css" />
+        <!-- Core theme CSS (includes Bootstrap)-->
+        <link href="css/styles.css" rel="stylesheet" />
+        <script>
+            const MOVIES_PER_PAGE = 20;
+let allMovies = [];
+let filteredMovies = [];
+let currentPage = 1;
+let allGenres = new Set();
+
+function renderMovieCard(movie) {
+    return `
+    <div class="movie-card-4th mb-4">
+        <div class="card h-100">
+            <img src="${movie.poster || ''}" class="card-img-top" alt="${movie.name || 'No Title'}" style="height:140px;object-fit:cover;">
+            <div class="card-body">
+                <h5 class="card-title">${movie.name || 'No Title'}</h5>
+                <p class="card-text"><strong>Genres:</strong> ${(movie.genres || []).join(', ')}</p>
+                <p class="card-text"><strong>Release Date:</strong> ${movie.date_published || ''}</p>
+                <p class="card-text"><strong>Rating:</strong> ${movie.rating || ''}</p>
+                <button class="btn btn-primary mt-2" onclick="alert('Show reviews for ${movie.name}')">Read Reviews</button>
+            </div>
+        </div>
+    </div>
+    `;
+}
+
+function renderPagination(totalPages, currentPage) {
+    let html = `<nav aria-label="Movie catalog pagination"><ul class="pagination justify-content-center">`;
+    let startPage = Math.max(1, Math.min(currentPage, totalPages - 4));
+    let endPage = Math.min(totalPages, startPage + 4);
+    for (let i = startPage; i <= endPage; i++) {
+        html += `<li class="page-item${i === currentPage ? ' active' : ''}">
+            <a class="page-link" href="#" data-page="${i}">${i}</a>
+        </li>`;
+    }
+    if (endPage < totalPages) {
+        html += `
+        <li class="page-item">
+            <input type="number" min="1" max="${totalPages}" id="pageInput" value="${currentPage}" style="width:60px; text-align:center;" class="form-control form-control-sm d-inline-block" />
+        </li>
+        <li class="page-item">
+            <button class="btn btn-sm btn-primary" id="goPageBtn">Go</button>
+        </li>
+        <li class="page-item${totalPages === currentPage ? ' active' : ''}">
+            <a class="page-link" href="#" data-page="${totalPages}">${totalPages}</a>
+        </li>
+        `;
+    }
+    html += `</ul></nav>`;
+    return html;
+}
+
+function filterMovies() {
+    const search = document.getElementById('searchInput').value.trim().toLowerCase();
+    const genre = document.getElementById('genreFilter').value;
+    const minYear = parseInt(document.getElementById('minYear').value, 10);
+    const maxYear = parseInt(document.getElementById('maxYear').value, 10);
+    const rating = parseFloat(document.getElementById('ratingFilter').value);
+
+    filteredMovies = allMovies.filter(movie => {
+        // Search by title
+        if (search && !(movie.name || '').toLowerCase().includes(search)) return false;
+        // Filter by genre
+        if (genre && (!movie.genres || !movie.genres.includes(genre))) return false;
+        // Filter by year
+        const year = movie.date_published ? parseInt(movie.date_published.slice(0,4), 10) : null;
+        if (!isNaN(minYear) && year && year < minYear) return false;
+        if (!isNaN(maxYear) && year && year > maxYear) return false;
+        // Filter by rating
+        if (!isNaN(rating) && movie.rating < rating) return false;
+        return true;
+    });
+    showPage(1);
+}
+
+function showPage(page) {
+    const catalog = document.getElementById('movieCatalog');
+    const pagination = document.getElementById('pagination');
+    const totalPages = Math.ceil(filteredMovies.length / MOVIES_PER_PAGE) || 1;
+    currentPage = page;
+
+    const start = (page - 1) * MOVIES_PER_PAGE;
+    const end = start + MOVIES_PER_PAGE;
+    const moviesToShow = filteredMovies.slice(start, end);
+
+    if (catalog) {
+        catalog.innerHTML = moviesToShow.map(renderMovieCard).join('');
+    }
+    if (pagination) {
+        pagination.innerHTML = renderPagination(totalPages, page);
+        pagination.querySelectorAll('.page-link').forEach(link => {
+            link.onclick = function(e) {
+                e.preventDefault();
+                showPage(Number(this.dataset.page));
+            }
+        });
+        const goBtn = document.getElementById('goPageBtn');
+        const pageInput = document.getElementById('pageInput');
+        if (goBtn && pageInput) {
+            goBtn.onclick = function() {
+                let val = parseInt(pageInput.value, 10);
+                if (!isNaN(val) && val >= 1 && val <= totalPages) {
+                    showPage(val);
+                }
+            };
+            pageInput.onkeydown = function(e) {
+                if (e.key === 'Enter') {
+                    let val = parseInt(pageInput.value, 10);
+                    if (!isNaN(val) && val >= 1 && val <= totalPages) {
+                        showPage(val);
+                    }
+                }
+            };
+        }
+    }
+}
+
+fetch('assets/imdb.json')
+    .then(res => res.json())
+    .then(data => {
+        allMovies = Object.values(data).filter(m => m && m.name);
+        // Collect all genres
+        allMovies.forEach(m => (m.genres || []).forEach(g => allGenres.add(g)));
+        // Populate genre filter
+        const genreFilter = document.getElementById('genreFilter');
+        if (genreFilter) {
+            Array.from(allGenres).sort().forEach(g => {
+                const opt = document.createElement('option');
+                opt.value = g;
+                opt.textContent = g;
+                genreFilter.appendChild(opt);
+            });
+        }
+        filteredMovies = allMovies;
+        showPage(1);
+    })
+    .catch(() => {
+        const catalog = document.getElementById('movieCatalog');
+        if (catalog) {
+            catalog.innerHTML = '<div class="col-12 text-center">Failed to load movies.</div>';
+        }
+    });
+
+// Event listeners for filters
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('searchInput').addEventListener('input', filterMovies);
+    document.getElementById('genreFilter').addEventListener('change', filterMovies);
+    document.getElementById('minYear').addEventListener('input', filterMovies);
+    document.getElementById('maxYear').addEventListener('input', filterMovies);
+    document.getElementById('ratingFilter').addEventListener('change', filterMovies);
+});
+</script>
+        <style>
+#movieCatalog {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    justify-content: flex-start;
+}
+.movie-card-4th {
+    flex: 0 0 24%;
+    max-width: 24%;
+    min-width: 160px;
+    box-sizing: border-box;
+}
+.card.h-100 {
+    padding: 0.5rem;
+}
+.card-img-top {
+    height: 140px !important;
+    object-fit: cover;
+}
+.card-title {
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+}
+.card-text {
+    font-size: 0.85rem;
+    margin-bottom: 0.3rem;
+}
+.btn {
+    font-size: 0.85rem;
+    padding: 0.25rem 0.75rem;
+}
+@media (max-width: 1200px) {
+    .movie-card-4th { flex: 0 0 33.333%; max-width: 33.333%; }
+}
+@media (max-width: 992px) {
+    .movie-card-4th { flex: 0 0 50%; max-width: 50%; }
+}
+@media (max-width: 768px) {
+    .movie-card-4th { flex: 0 0 100%; max-width: 100%; }
+}
+</style>
+    </head>
+    <body>
+        <!-- Navigation-->
+        <nav class="navbar navbar-expand-lg navbar-light" id="mainNav">
+            <div class="container px-4 px-lg-5">
+                <a class="navbar-brand" href="index.html">Movie Reviews</a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarResponsive" aria-controls="navbarResponsive" aria-expanded="false" aria-label="Toggle navigation">
+                    Menu
+                    <i class="fas fa-bars"></i>
+                </button>
+                <div class="collapse navbar-collapse" id="navbarResponsive">
+                    <ul class="navbar-nav ms-auto py-4 py-lg-0">
+                        <li class="nav-item"><a class="nav-link px-lg-3 py-3 py-lg-4" href="index.html">Home</a></li>
+                        <li class="nav-item"><a class="nav-link px-lg-3 py-3 py-lg-4" href="catalog.html">Catalog</a></li>
+                        <li class="nav-item"><a class="nav-link px-lg-3 py-3 py-lg-4" href="recommendations.html">Recommendations</a></li>
+                        <li class="nav-item"><a class="nav-link px-lg-3 py-3 py-lg-4" href="contact.html">Contact</a></li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+        <!-- Page Header-->
+        <header class="masthead" style="background-image: url('assets/img/about-bg.jpg')">
+            <div class="container position-relative px-4 px-lg-5">
+                <div class="row gx-4 gx-lg-5 justify-content-center">
+                    <div class="col-md-10 col-lg-8 col-xl-7">
+                        <div class="page-heading">
+                            <h1>Catalog</h1>
+                            <span class="subheading">Catalog of movies.</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+        <main class="mb-4">
+            <div class="container my-5">
+                <div class="row mb-4">
+                <div class="col-md-3 mb-2">
+                    <input type="text" id="searchInput" class="form-control" placeholder="Search by title...">
+                </div>
+                <div class="col-md-3 mb-2">
+                    <select id="genreFilter" class="form-select">
+                    <option value="">All Genres</option>
+                    </select>
+                </div>
+                <div class="col-md-2 mb-2">
+                    <input type="number" id="minYear" class="form-control" placeholder="Min Year">
+                </div>
+                <div class="col-md-2 mb-2">
+                    <input type="number" id="maxYear" class="form-control" placeholder="Max Year">
+                </div>
+                <div class="col-md-2 mb-2">
+                    <select id="ratingFilter" class="form-select">
+                    <option value="">All Ratings</option>
+                    <option value="9">9+</option>
+                    <option value="8">8+</option>
+                    <option value="7">7+</option>
+                    <option value="6">6+</option>
+                    <option value="5">5+</option>
+                    </select>
+                </div>
+                </div>
+                <div id="movieCatalog" class="g-4">
+                    <!-- Movie cards will be injected here by JS -->
+                </div>
+                <div id="pagination" class="mt-4"></div>
+            </div>
+        </main><!-- Footer-->
+        <footer class="border-top">
+            <div class="container px-4 px-lg-5">
+                <div class="row gx-4 gx-lg-5 justify-content-center">
+                    <div class="col-md-10 col-lg-8 col-xl-7">
+                        <ul class="list-inline text-center">
+                            <li class="list-inline-item">
+                                <a href="#!">
+                                    <span class="fa-stack fa-lg">
+                                        <i class="fas fa-circle fa-stack-2x"></i>
+                                        <i class="fab fa-twitter fa-stack-1x fa-inverse"></i>
+                                    </span>
+                                </a>
+                            </li>
+                            <li class="list-inline-item">
+                                <a href="#!">
+                                    <span class="fa-stack fa-lg">
+                                        <i class="fas fa-circle fa-stack-2x"></i>
+                                        <i class="fab fa-facebook-f fa-stack-1x fa-inverse"></i>
+                                    </span>
+                                </a>
+                            </li>
+                            <li class="list-inline-item">
+                                <a href="#!">
+                                    <span class="fa-stack fa-lg">
+                                        <i class="fas fa-circle fa-stack-2x"></i>
+                                        <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                                    </span>
+                                </a>
+                            </li>
+                        </ul>
+                        <div class="small text-center text-muted fst-italic">Copyright &copy; Your Website 2023</div>
+                    </div>
+                </div>
+            </div>
+        </footer>
+        <!-- Bootstrap core JS-->
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+        <!-- Core theme JS-->
+        <script src="js/scripts.js"></script>
+    </body>
+</html>
