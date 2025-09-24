@@ -62,6 +62,28 @@ function renderCarouselSlides(movies, perSlide = 3) {
 }
 
 let moviesGlobal = [];
+// Populate year dropdowns
+function populateYearDropdowns() {
+    const currentYear = new Date().getFullYear();
+    const minYearDropdown = document.getElementById('minYear');
+    const maxYearDropdown = document.getElementById('maxYear');
+
+    // Populate years from 1900 to the current year
+    for (let year = currentYear; year >= 1900; year--) {
+        const minOption = document.createElement('option');
+        minOption.value = year;
+        minOption.textContent = year;
+        minYearDropdown.appendChild(minOption);
+
+        const maxOption = document.createElement('option');
+        maxOption.value = year;
+        maxOption.textContent = year;
+        maxYearDropdown.appendChild(maxOption);
+    }
+}
+
+// Call the function to populate the dropdowns
+populateYearDropdowns();
 
 fetch('assets/imdb.json')
   .then(res => res.json())

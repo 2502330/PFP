@@ -40,26 +40,39 @@ function renderMovieCard(movie, idx) {
 
 function renderPagination(totalPages, currentPage) {
     let html = `<nav aria-label="Movie catalog pagination"><ul class="pagination justify-content-center">`;
-    let startPage = Math.max(1, Math.min(currentPage, totalPages - 4));
-    let endPage = Math.min(totalPages, startPage + 4);
+
+    // Add "Previous" button
+    if (currentPage > 1) {
+        html += `<li class="page-item">
+            <a class="page-link" href="#" data-page="${currentPage - 1}">Previous</a>
+        </li>`;
+    }
+
+    // Determine the range of pages to display
+    let startPage = Math.max(1, currentPage - 2); // Show 2 pages before the current page
+    let endPage = Math.min(totalPages, currentPage + 2); // Show 2 pages after the current page
+
+    // Adjust range if near the beginning or end
+    if (currentPage <= 3) {
+        endPage = Math.min(5, totalPages);
+    } else if (currentPage >= totalPages - 2) {
+        startPage = Math.max(1, totalPages - 4);
+    }
+
+    // Generate page links
     for (let i = startPage; i <= endPage; i++) {
         html += `<li class="page-item${i === currentPage ? ' active' : ''}">
             <a class="page-link" href="#" data-page="${i}">${i}</a>
         </li>`;
     }
-    if (endPage < totalPages) {
-        html += `
-        <li class="page-item">
-            <input type="number" min="1" max="${totalPages}" id="pageInput" value="${currentPage}" style="width:60px; text-align:center;" class="form-control form-control-sm d-inline-block" />
-        </li>
-        <li class="page-item">
-            <button class="btn btn-sm btn-primary" id="goPageBtn">Go</button>
-        </li>
-        <li class="page-item${totalPages === currentPage ? ' active' : ''}">
-            <a class="page-link" href="#" data-page="${totalPages}">${totalPages}</a>
-        </li>
-        `;
+
+    // Add "Next" button
+    if (currentPage < totalPages) {
+        html += `<li class="page-item">
+            <a class="page-link" href="#" data-page="${currentPage + 1}">Next</a>
+        </li>`;
     }
+
     html += `</ul></nav>`;
     return html;
 }
@@ -91,6 +104,13 @@ function showPage(page) {
     const catalog = document.getElementById('movieCatalog');
     const pagination = document.getElementById('pagination');
     const totalPages = Math.ceil(filteredMovies.length / MOVIES_PER_PAGE) || 1;
+
+    // Ensure the page number is within valid bounds
+    if (page < 1 || page > totalPages) {
+        alert(`Please enter a valid page number between 1 and ${totalPages}.`);
+        return;
+    }
+
     currentPage = page;
 
     const start = (page - 1) * MOVIES_PER_PAGE;
@@ -103,31 +123,43 @@ function showPage(page) {
     if (pagination) {
         pagination.innerHTML = renderPagination(totalPages, page);
         pagination.querySelectorAll('.page-link').forEach(link => {
-            link.onclick = function(e) {
+            link.onclick = function (e) {
                 e.preventDefault();
                 showPage(Number(this.dataset.page));
-            }
+            };
         });
-        const goBtn = document.getElementById('goPageBtn');
-        const pageInput = document.getElementById('pageInput');
-        if (goBtn && pageInput) {
-            goBtn.onclick = function() {
-                let val = parseInt(pageInput.value, 10);
-                if (!isNaN(val) && val >= 1 && val <= totalPages) {
-                    showPage(val);
-                }
-            };
-            pageInput.onkeydown = function(e) {
-                if (e.key === 'Enter') {
-                    let val = parseInt(pageInput.value, 10);
-                    if (!isNaN(val) && val >= 1 && val <= totalPages) {
-                        showPage(val);
-                    }
-                }
-            };
-        }
     }
 }
+
+// Add event listener for the "Go to Page" input and button
+document.addEventListener('DOMContentLoaded', function () {
+    const goBtn = document.getElementById('goPageBtn');
+    const pageInput = document.getElementById('pageInput');
+
+    if (goBtn && pageInput) {
+        // Handle "Go" button click
+        goBtn.onclick = function () {
+            const val = parseInt(pageInput.value, 10);
+            if (!isNaN(val)) {
+                showPage(val);
+            } else {
+                alert('Please enter a valid page number.');
+            }
+        };
+
+        // Handle "Enter" key press in the input field
+        pageInput.onkeydown = function (e) {
+            if (e.key === 'Enter') {
+                const val = parseInt(pageInput.value, 10);
+                if (!isNaN(val)) {
+                    showPage(val);
+                } else {
+                    alert('Please enter a valid page number.');
+                }
+            }
+        };
+    }
+});
 
 fetch('assets/imdb.json')
     .then(res => res.json())
@@ -251,10 +283,14 @@ document.addEventListener('DOMContentLoaded', function() {
                     </select>
                 </div>
                 <div class="col-md-2 mb-2">
-                    <input type="number" id="minYear" class="form-control" placeholder="Min Year">
+                    <select id="minYear" class="form-select">
+                        <option value="">Min Year</option>
+                    </select>
                 </div>
                 <div class="col-md-2 mb-2">
-                    <input type="number" id="maxYear" class="form-control" placeholder="Max Year">
+                    <select id="maxYear" class="form-select">
+                        <option value="">Max Year</option>
+                    </select>
                 </div>
                 <div class="col-md-2 mb-2">
                     <select id="ratingFilter" class="form-select">
@@ -271,6 +307,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     <!-- Movie cards will be injected here by JS -->
                 </div>
                 <div id="pagination" class="mt-4"></div>
+                <div id="pagination" class="mt-4"></div>
+                <div class="d-flex justify-content-center mt-2">
+                    <input type="number" id="pageInput" class="form-control me-2" placeholder="Go to page..." style="width: 120px;">
+                    <button id="goPageBtn" class="btn btn-primary">Go</button>
+                </div>
             </div>
         </main><!-- Footer-->
         <footer class="border-top">
