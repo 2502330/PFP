@@ -27,8 +27,6 @@ window.addEventListener('DOMContentLoaded', () => {
         scrollPos = currentTop;
     });
 })
-
-let moviesGlobal = [];
 // Populate year dropdowns
 function populateYearDropdowns() {
     const currentYear = new Date().getFullYear();
@@ -51,4 +49,5 @@ function populateYearDropdowns() {
 
 // Call the function to populate the dropdowns
 populateYearDropdowns();
+
 
