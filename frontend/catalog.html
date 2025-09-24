@@ -21,7 +21,7 @@ let filteredMovies = [];
 let currentPage = 1;
 let allGenres = new Set();
 
-function renderMovieCard(movie) {
+function renderMovieCard(movie, idx) {
     return `
     <div class="movie-card-4th mb-4">
         <div class="card h-100">
@@ -31,7 +31,7 @@ function renderMovieCard(movie) {
                 <p class="card-text"><strong>Genres:</strong> ${(movie.genres || []).join(', ')}</p>
                 <p class="card-text"><strong>Release Date:</strong> ${movie.date_published || ''}</p>
                 <p class="card-text"><strong>Rating:</strong> ${movie.rating || ''}</p>
-                <button class="btn btn-primary mt-2" onclick="alert('Show reviews for ${movie.name}')">Read Reviews</button>
+                <button class="btn btn-primary mt-2" onclick="showReviewsByIndex(${idx})">Read Reviews</button>
             </div>
         </div>
     </div>
@@ -98,8 +98,8 @@ function showPage(page) {
     const moviesToShow = filteredMovies.slice(start, end);
 
     if (catalog) {
-        catalog.innerHTML = moviesToShow.map(renderMovieCard).join('');
-    }
+    catalog.innerHTML = moviesToShow.map((movie, idx) => renderMovieCard(movie, start + idx)).join('');
+}
     if (pagination) {
         pagination.innerHTML = renderPagination(totalPages, page);
         pagination.querySelectorAll('.page-link').forEach(link => {
@@ -155,6 +155,24 @@ fetch('assets/imdb.json')
         }
     });
 
+function showReviews(reviews, movieName) {
+    const modalLabel = document.getElementById('reviewsModalLabel');
+    const modalBody = document.getElementById('reviewsModalBody');
+    modalLabel.textContent = `Reviews for ${movieName}`;
+    if (reviews && reviews.length > 0) {
+        modalBody.innerHTML = `<ul>${reviews.map(r => `<li class="mb-3">${r}</li>`).join('')}</ul>`;
+    } else {
+        modalBody.innerHTML = '<p>No reviews available.</p>';
+    }
+    const modal = new bootstrap.Modal(document.getElementById('reviewsModal'));
+    modal.show();
+}
+
+function showReviewsByIndex(idx) {
+    const movie = filteredMovies[idx];
+    showReviews(movie.reviews || [], movie.name || 'No Title');
+}
+
 // Event listeners for filters
 document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('searchInput').addEventListener('input', filterMovies);
@@ -165,45 +183,27 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
         <style>
-#movieCatalog {
+            #movieCatalog {
     display: flex;
     flex-wrap: wrap;
     gap: 1rem;
-    justify-content: flex-start;
+    justify-content: center; /* This centers the cards horizontally */
 }
 .movie-card-4th {
-    flex: 0 0 24%;
-    max-width: 24%;
-    min-width: 160px;
+    flex: 0 0 48%;
+    max-width: 48%;
+    min-width: 180px;
     box-sizing: border-box;
 }
-.card.h-100 {
-    padding: 0.5rem;
+@media (max-width: 900px) {
+    .movie-card-4th { flex: 0 0 100%; max-width: 100%; }
 }
 .card-img-top {
-    height: 140px !important;
-    object-fit: cover;
-}
-.card-title {
-    font-size: 1rem;
-    margin-bottom: 0.5rem;
-}
-.card-text {
-    font-size: 0.85rem;
-    margin-bottom: 0.3rem;
-}
-.btn {
-    font-size: 0.85rem;
-    padding: 0.25rem 0.75rem;
-}
-@media (max-width: 1200px) {
-    .movie-card-4th { flex: 0 0 33.333%; max-width: 33.333%; }
-}
-@media (max-width: 992px) {
-    .movie-card-4th { flex: 0 0 50%; max-width: 50%; }
-}
-@media (max-width: 768px) {
-    .movie-card-4th { flex: 0 0 100%; max-width: 100%; }
+    width: 100%;
+    height: 220px;           /* Fixed height for all images */
+    object-fit: cover;       /* Crop and fill the area */
+    object-position: center; /* Center the image */
+    background: #222;        /* Optional: fallback background */
 }
 </style>
     </head>
@@ -267,7 +267,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     </select>
                 </div>
                 </div>
-                <div id="movieCatalog" class="g-4">
+                <div id="movieCatalog">
                     <!-- Movie cards will be injected here by JS -->
                 </div>
                 <div id="pagination" class="mt-4"></div>
@@ -312,5 +312,19 @@ document.addEventListener('DOMContentLoaded', function() {
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
         <!-- Core theme JS-->
         <script src="js/scripts.js"></script>
+        <!-- Reviews Modal -->
+        <div class="modal fade" id="reviewsModal" tabindex="-1" aria-labelledby="reviewsModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content bg-dark text-light">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="reviewsModalLabel">Reviews</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body" id="reviewsModalBody">
+                        <!-- Reviews will be injected here -->
+                    </div>
+                </div>
+            </div>
+        </div>
     </body>
 </html>

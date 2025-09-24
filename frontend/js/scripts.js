@@ -29,8 +29,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })
 
 // Fetch and display movies from imdb.json
-
-function renderMovieCard(movie) {
+function renderMovieCard(movie, idx) {
   return `
     <div class="col-md-4 mb-3">
       <div class="card h-100">
@@ -40,7 +39,7 @@ function renderMovieCard(movie) {
           <p class="card-text"><strong>Genres:</strong> ${(movie.genres || []).join(', ')}</p>
           <p class="card-text"><strong>Release Date:</strong> ${movie.date_published || ''}</p>
           <p class="card-text"><strong>Rating:</strong> ${movie.rating || ''}</p>
-          <button class="btn btn-primary mt-2" onclick="alert('Show reviews for ${movie.name}')">Read Reviews</button>
+          <button class="btn btn-primary mt-2" onclick="showReviewsByIndex(${idx})">Read Reviews</button>
         </div>
       </div>
     </div>
@@ -54,7 +53,7 @@ function renderCarouselSlides(movies, perSlide = 3) {
     slides.push(`
       <div class="carousel-item${i === 0 ? ' active' : ''}">
         <div class="row">
-          ${group.map(renderMovieCard).join('')}
+          ${group.map((movie, idx) => renderMovieCard(movie, i + idx)).join('')}
         </div>
       </div>
     `);
@@ -62,16 +61,18 @@ function renderCarouselSlides(movies, perSlide = 3) {
   return slides.join('');
 }
 
+let moviesGlobal = [];
+
 fetch('assets/imdb.json')
   .then(res => res.json())
   .then(data => {
-    const movies = Object.values(data).filter(m => m && m.name);
+    moviesGlobal = Object.values(data).filter(m => m && m.name);
     const carouselInner = document.getElementById('carousel-inner');
-    if (!carouselInner || movies.length === 0) {
+    if (!carouselInner || moviesGlobal.length === 0) {
       carouselInner.innerHTML = '<div class="carousel-item active"><div class="post-preview text-center">No movies found.</div></div>';
       return;
     }
-    carouselInner.innerHTML = renderCarouselSlides(movies, 3);
+    carouselInner.innerHTML = renderCarouselSlides(moviesGlobal, 3);
   })
   .catch(() => {
     const carouselInner = document.getElementById('carousel-inner');
@@ -81,4 +82,22 @@ fetch('assets/imdb.json')
   });
 
   
+function showReviews(reviews, movieName) {
+    const modalLabel = document.getElementById('reviewsModalLabel');
+    const modalBody = document.getElementById('reviewsModalBody');
+    modalLabel.textContent = `Reviews for ${movieName}`;
+    if (reviews && reviews.length > 0) {
+        modalBody.innerHTML = `<ul>${reviews.map(r => `<li class="mb-3">${r}</li>`).join('')}</ul>`;
+    } else {
+        modalBody.innerHTML = '<p>No reviews available.</p>';
+    }
+    // Show the modal
+    const modal = new bootstrap.Modal(document.getElementById('reviewsModal'));
+    modal.show();
+}
+
+function showReviewsByIndex(idx) {
+    const movie = moviesGlobal[idx];
+    showReviews(movie.reviews || [], movie.name || 'No Title');
+}
 
