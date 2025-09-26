@@ -1,5 +1,4 @@
 import json
-import enchant
 from datetime import datetime
 
 
@@ -8,9 +7,9 @@ class ReviewSegmenter:
         self.dictionary = self._load_dictionary()
         self.data = self._load_reviews()
         self.max_word_len = 20
+        
     def _load_dictionary(self):
-        """Load dictionary from words.txt file with fallbacks"""
-        # First try to load from words.txt
+        """Load dictionary from words.txt file"""
         try:
             with open('data/words.txt', 'r', encoding='utf-8') as f:
                 word_set = set(line.strip().lower() for line in f if line.strip())
@@ -18,6 +17,7 @@ class ReviewSegmenter:
             return word_set
         except FileNotFoundError:
             print("Warning: data/words.txt not found.")
+            return set()  # Return empty set as fallback
 
     def _load_reviews(self):
         """Load reviews from JSON file"""
@@ -107,7 +107,7 @@ class ReviewSegmenter:
         movie["reviews"][review_index] = segmented_review
         
         print(f"\nOriginal review: {review}")
-        print(f"Segmented review: {segmented_review}")
+        print(f"Segmented review: {segmented_review.capitalize()}")
         
         return True
 
@@ -123,7 +123,7 @@ class ReviewSegmenter:
         segmented_text = self.insert_spaces(clean_text)
         
         print(f"\nOriginal text: {user_text}")
-        print(f"Segmented text: {segmented_text}")
+        print(f"Segmented text: {segmented_text.capitalize()}")
         
         self._save_user_segmentation(user_text, segmented_text)
 
