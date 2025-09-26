@@ -17,7 +17,7 @@ class ReviewSegmenter:
             print("Loaded dictionary from data/words.txt")
             return word_set
         except FileNotFoundError:
-            print("Warning: data/words.txt not found. Trying fallback dictionaries...")
+            print("Warning: data/words.txt not found.")
 
     def _load_reviews(self):
         """Load reviews from JSON file"""
@@ -29,11 +29,8 @@ class ReviewSegmenter:
             return {}
 
     def _is_valid_word(self, word):
-        """Check if a word exists in the dictionary"""
-        if hasattr(self.dictionary, 'check'):  # PyEnchant dictionary
-            return self.dictionary.check(word)
-        else:  # Set of words
-            return word in self.dictionary
+        """Check if a word exists in our word list"""
+        return word in self.dictionary
 
     def insert_spaces(self, text):
         """Insert spaces into text using dictionary segmentation"""
