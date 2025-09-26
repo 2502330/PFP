@@ -1,7 +1,6 @@
 import json
 from datetime import datetime
 
-
 class ReviewSegmenter:
     def __init__(self):
         self.dictionary = self._load_dictionary()
