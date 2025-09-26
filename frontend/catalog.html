@@ -346,7 +346,7 @@
 
                 modalTitle.textContent = `Recommendations for "${movie.name}"`;
                 
-                // Get recommendations from genre.json
+                // Get recommendations from genre.json - now handling the array structure
                 const recommendedIds = genreData[movieId] || [];
                 
                 if (recommendedIds.length === 0) {
@@ -358,47 +358,65 @@
                         </div>
                     `;
                 } else {
-                    // Get movie details for recommended movies
+                    // Get movie details for recommended movies from imdbData
                     const recommendedMovies = recommendedIds
                         .map(id => {
                             const imdbMovie = imdbData[id];
-                            return imdbMovie ? { id, ...imdbMovie } : null;
+                            if (imdbMovie) {
+                                return { 
+                                    id, 
+                                    name: imdbMovie.name || 'Unknown Title',
+                                    poster: imdbMovie.poster || 'assets/img/placeholder-movie.jpg',
+                                    date_published: imdbMovie.date_published || 'N/A',
+                                    rating: imdbMovie.rating || 'N/A',
+                                    genres: imdbMovie.genres || []
+                                };
+                            }
+                            return null;
                         })
-                        .filter(movie => movie !== null)
-                        .slice(0, 12); // Limit to 12 recommendations
+                        .filter(movie => movie !== null);
 
                     if (recommendedMovies.length === 0) {
                         modalBody.innerHTML = `
                             <div class="text-center">
                                 <i class="fas fa-exclamation-circle fa-3x text-warning mb-3"></i>
                                 <h5>No Movie Details Available</h5>
-                                <p class="text-muted">We found recommendations but couldn't load their details.</p>
+                                <p class="text-muted">We found ${recommendedIds.length} recommendation(s) but couldn't load their details from our database.</p>
                             </div>
                         `;
                     } else {
+                        // Sort by rating (highest first) and limit to 12
+                        const sortedMovies = recommendedMovies
+                            .sort((a, b) => parseFloat(b.rating) - parseFloat(a.rating))
+                            .slice(0, 12);
+
                         modalBody.innerHTML = `
                             <div class="row">
-                                ${recommendedMovies.map(recMovie => `
+                                ${sortedMovies.map(recMovie => `
                                     <div class="col-lg-4 col-md-6 mb-4">
                                         <div class="card h-100 bg-secondary text-white">
-                                            <img src="${recMovie.poster || 'assets/img/placeholder-movie.jpg'}" 
+                                            <img src="${recMovie.poster}" 
                                                  class="card-img-top" 
-                                                 alt="${recMovie.name || 'No Title'}" 
+                                                 alt="${recMovie.name}" 
                                                  style="height:250px;object-fit:cover;" 
                                                  onerror="this.src='assets/img/placeholder-movie.jpg'">
                                             <div class="card-body d-flex flex-column">
-                                                <h6 class="card-title">${recMovie.name || 'No Title'}</h6>
+                                                <h6 class="card-title" title="${recMovie.name}">${recMovie.name.length > 40 ? recMovie.name.substring(0, 40) + '...' : recMovie.name}</h6>
                                                 <p class="card-text small">
-                                                    <strong>Year:</strong> ${recMovie.date_published ? recMovie.date_published.slice(0,4) : 'N/A'}<br>
-                                                    <strong>Rating:</strong> ${recMovie.rating || 'N/A'}/10<br>
-                                                    <strong>Genres:</strong> ${(recMovie.genres || []).slice(0, 2).join(', ')}
+                                                    <strong>Year:</strong> ${recMovie.date_published !== 'N/A' ? recMovie.date_published.slice(0,4) : 'N/A'}<br>
+                                                    <strong>Rating:</strong> ${recMovie.rating}/10<br>
+                                                    <strong>Genres:</strong> ${recMovie.genres.slice(0, 2).join(', ') || 'Not specified'}
                                                 </p>
-                                                ${allMovies[recMovie.id] ? 
-                                                    `<button class="btn btn-primary btn-sm mt-auto" onclick="showMovieDetails('${recMovie.id}')">
-                                                        View Details
-                                                    </button>` : 
-                                                    `<small class="text-muted mt-auto">Not in our collection</small>`
-                                                }
+                                                <div class="mt-auto">
+                                                    ${allMovies[recMovie.id] ? 
+                                                        `<button class="btn btn-primary btn-sm w-100 mb-2" onclick="showMovieDetails('${recMovie.id}')">
+                                                            <i class="fas fa-eye me-1"></i>View Our Analysis
+                                                        </button>` : ''
+                                                    }
+                                                    <button class="btn btn-outline-light btn-sm w-100" onclick="showMoreRecommendations('${recMovie.id}', '${recMovie.name.replace(/'/g, "\\'")}')">
+                                                        <i class="fas fa-search-plus me-1"></i>Find Similar
+                                                    </button>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -406,15 +424,111 @@
                             </div>
                             <div class="text-center mt-3">
                                 <small class="text-muted">
-                                    Showing ${recommendedMovies.length} of ${recommendedIds.length} recommendations
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    Showing top ${sortedMovies.length} of ${recommendedIds.length} recommendations (sorted by rating)
                                 </small>
                             </div>
+                            ${recommendedIds.length > 12 ? `
+                                <div class="text-center mt-2">
+                                    <button class="btn btn-outline-info btn-sm" onclick="showAllRecommendations('${movieId}')">
+                                        <i class="fas fa-list me-1"></i>Show All ${recommendedIds.length} Recommendations
+                                    </button>
+                                </div>
+                            ` : ''}
                         `;
                     }
                 }
 
                 const bootstrapModal = new bootstrap.Modal(modal);
                 bootstrapModal.show();
+            }
+
+            // New function to show more recommendations for a specific movie
+            function showMoreRecommendations(movieId, movieName) {
+                // Close current modal and show recommendations for the selected movie
+                const currentModal = bootstrap.Modal.getInstance(document.getElementById('recommendationsModal'));
+                if (currentModal) {
+                    currentModal.hide();
+                }
+                
+                setTimeout(() => {
+                    showRecommendations(movieId);
+                }, 300);
+            }
+
+            // New function to show all recommendations (not just top 12)
+            function showAllRecommendations(movieId) {
+                const movie = allMovies[movieId];
+                if (!movie) return;
+
+                const recommendedIds = genreData[movieId] || [];
+                const modalBody = document.getElementById('recommendationsModalBody');
+                
+                if (!modalBody || recommendedIds.length === 0) return;
+
+                // Get all movie details
+                const allRecommendedMovies = recommendedIds
+                    .map(id => {
+                        const imdbMovie = imdbData[id];
+                        if (imdbMovie) {
+                            return { 
+                                id, 
+                                name: imdbMovie.name || 'Unknown Title',
+                                poster: imdbMovie.poster || 'assets/img/placeholder-movie.jpg',
+                                date_published: imdbMovie.date_published || 'N/A',
+                                rating: imdbMovie.rating || 'N/A',
+                                genres: imdbMovie.genres || []
+                            };
+                        }
+                        return null;
+                    })
+                    .filter(movie => movie !== null)
+                    .sort((a, b) => parseFloat(b.rating) - parseFloat(a.rating));
+
+                modalBody.innerHTML = `
+                    <div class="mb-3">
+                        <button class="btn btn-outline-secondary btn-sm" onclick="showRecommendations('${movieId}')">
+                            <i class="fas fa-arrow-left me-1"></i>Back to Top Recommendations
+                        </button>
+                    </div>
+                    <div class="row">
+                        ${allRecommendedMovies.map(recMovie => `
+                            <div class="col-lg-3 col-md-4 col-sm-6 mb-3">
+                                <div class="card h-100 bg-secondary text-white">
+                                    <img src="${recMovie.poster}" 
+                                         class="card-img-top" 
+                                         alt="${recMovie.name}" 
+                                         style="height:200px;object-fit:cover;" 
+                                         onerror="this.src='assets/img/placeholder-movie.jpg'">
+                                    <div class="card-body d-flex flex-column">
+                                        <h6 class="card-title small" title="${recMovie.name}">
+                                            ${recMovie.name.length > 30 ? recMovie.name.substring(0, 30) + '...' : recMovie.name}
+                                        </h6>
+                                        <p class="card-text small">
+                                            <strong>Year:</strong> ${recMovie.date_published !== 'N/A' ? recMovie.date_published.slice(0,4) : 'N/A'}<br>
+                                            <strong>Rating:</strong> ${recMovie.rating}/10
+                                        </p>
+                                        <div class="mt-auto">
+                                            ${allMovies[recMovie.id] ? 
+                                                `<button class="btn btn-primary btn-sm w-100 mb-1" onclick="showMovieDetails('${recMovie.id}')" style="font-size: 0.7rem;">
+                                                    View Analysis
+                                                </button>` : ''
+                                            }
+                                            <button class="btn btn-outline-light btn-sm w-100" onclick="showMoreRecommendations('${recMovie.id}', '${recMovie.name.replace(/'/g, "\\'")}');" style="font-size: 0.7rem;">
+                                                Find Similar
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                    <div class="text-center mt-3">
+                        <small class="text-muted">
+                            Showing all ${allRecommendedMovies.length} recommendations for "${movie.name}"
+                        </small>
+                    </div>
+                `;
             }
 
             function showMovieDetails(movieId) {
