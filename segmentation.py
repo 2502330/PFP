@@ -1,22 +1,23 @@
 import json
 from datetime import datetime
+import wordninja
 
 class ReviewSegmenter:
     def __init__(self):
-        self.dictionary = self._load_dictionary()
+        # self.dictionary = self._load_dictionary()
         self.data = self._load_reviews()
         self.max_word_len = 20
         
-    def _load_dictionary(self):
-        """Load dictionary from words.txt file"""
-        try:
-            with open('data/words.txt', 'r', encoding='utf-8') as f:
-                word_set = set(line.strip().lower() for line in f if line.strip())
-            print("Loaded dictionary from data/words.txt")
-            return word_set
-        except FileNotFoundError:
-            print("Warning: data/words.txt not found.")
-            return set()  # Return empty set as fallback
+    # def _load_dictionary(self):
+    #     """Load dictionary from words.txt file"""
+    #     try:
+    #         with open('data/words.txt', 'r', encoding='utf-8') as f:
+    #             word_set = set(line.strip().lower() for line in f if line.strip())
+    #         print("Loaded dictionary from data/words.txt")
+    #         return word_set
+    #     except FileNotFoundError:
+    #         print("Warning: data/words.txt not found.")
+    #         return set()  # Return empty set as fallback
 
     def _load_reviews(self):
         """Load reviews from JSON file"""
@@ -29,33 +30,37 @@ class ReviewSegmenter:
 
     def _is_valid_word(self, word):
         """Check if a word exists in our word list"""
-        return word in self.dictionary
+        return len(wordninja.split(word)) == 1
+        # return word in self.dictionary
 
     def insert_spaces(self, text):
         """Insert spaces into text using dictionary segmentation"""
-        n = len(text)
-        i = 0
-        words = []
-        
-        while i < n:
-            found = False
-            
-            # Try longest possible word first
-            for length in range(min(self.max_word_len, n - i), 0, -1):
-                word = text[i:i + length]
-                
-                if self._is_valid_word(word):
-                    words.append(word)
-                    i += length
-                    found = True
-                    break
-            
-            if not found:
-                # If no word found, take one character
-                words.append(text[i])
-                i += 1
-        
+        words = wordninja.split(text)
         return ' '.join(words)
+        
+        # n = len(text)
+        # i = 0
+        # words = []
+        
+        # while i < n:
+        #     found = False
+            
+        #     # Try longest possible word first
+        #     for length in range(min(self.max_word_len, n - i), 0, -1):
+        #         word = text[i:i + length]
+                
+        #         if self._is_valid_word(word):
+        #             words.append(word)
+        #             i += length
+        #             found = True
+        #             break
+            
+        #     if not found:
+        #         # If no word found, take one character
+        #         words.append(text[i])
+        #         i += 1
+        
+        # return ' '.join(words)
 
     def display_movies(self):
         """Display all available movies"""
