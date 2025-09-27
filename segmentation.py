@@ -1,10 +1,14 @@
 import json
 from datetime import datetime
+import os
+import re
+
 
 class ReviewSegmenter:
     def __init__(self):
         self.dictionary = self._load_dictionary()
         self.data = self._load_reviews()
+        self.result_data = self._load_result_data()
         self.max_word_len = 20
         
     def _load_dictionary(self):
@@ -16,15 +20,26 @@ class ReviewSegmenter:
             return word_set
         except FileNotFoundError:
             print("Warning: data/words.txt not found.")
-            return set()  # Return empty set as fallback
+            return set()
 
     def _load_reviews(self):
         """Load reviews from JSON file"""
         try:
-            with open('data/imdb_no_spaces_reviews.json', 'r', encoding='utf-8') as f:
+            with open('data/imdb.json', 'r', encoding='utf-8') as f:
                 return json.load(f)
         except FileNotFoundError:
-            print("Warning: data/imdb_no_spaces_reviews.json not found.")
+            print("Warning: data/imdb.json not found.")
+            return {}
+
+    def _load_result_data(self):
+        """Load existing results.json data from results/ folder"""
+        try:
+            with open('results/results.json', 'r', encoding='utf-8') as f:
+                existing_data = json.load(f)
+                print("Loaded existing results.json file from results/results.json")
+                return existing_data
+        except FileNotFoundError:
+            print("Warning: results/results.json not found. Starting with empty structure.")
             return {}
 
     def _is_valid_word(self, word):
@@ -57,6 +72,49 @@ class ReviewSegmenter:
         
         return ' '.join(words)
 
+    def _auto_segment_review(self, review_text):
+        """Automatically segment review text and capitalize sentences after dots"""
+        # Clean the text - keep spaces, letters, numbers, and basic punctuation
+        clean_review = re.sub(r'[^\w\s\.!?]', '', review_text.lower())
+        clean_review = re.sub(r'\s+', ' ', clean_review).strip()
+        
+        # First, segment the text
+        segmented_review = self.insert_spaces(clean_review)
+        
+        # Then capitalize sentences after dots
+        segmented_review = self._capitalize_sentences(segmented_review)
+        
+        return segmented_review
+
+    def _capitalize_sentences(self, text):
+        """Capitalize the first letter of each sentence after a dot"""
+        if not text:
+            return text
+        
+        # Split into sentences using dot as delimiter, but preserve the dots
+        parts = text.split('.')
+        capitalized_parts = []
+        
+        for i, part in enumerate(parts):
+            part = part.strip()
+            if part:
+                # Capitalize first letter of each sentence
+                if i == 0:  # First sentence
+                    capitalized_part = part[0].upper() + part[1:] if part else ""
+                else:  # Subsequent sentences
+                    capitalized_part = part[0].upper() + part[1:] if part else ""
+                
+                capitalized_parts.append(capitalized_part)
+        
+        # Join with dots and spaces
+        result = '. '.join(capitalized_parts)
+        
+        # Add final dot if the original text ended with a dot
+        if text.strip().endswith('.'):
+            result += '.'
+        
+        return result
+
     def display_movies(self):
         """Display all available movies"""
         if not self.data:
@@ -66,139 +124,76 @@ class ReviewSegmenter:
         print("Available movies:")
         for i, movie_id in enumerate(self.data.keys()):
             movie_title = self.data[movie_id].get("title", "Unknown Title")
-            print(f"{i}: {movie_id} - {movie_title}")
+            # Check if movie exists in results.json
+            has_result = "Yes" if movie_id in self.result_data else "No"
+            print(f"{i}: {movie_id} - {movie_title} [In results.json: {has_result}]")
 
-    def display_reviews(self, movie_id):
-        """Display reviews for a specific movie"""
+    def add_new_review(self, movie_id, review_text):
+        """Add a new review to a movie and auto-segment it"""
         if movie_id not in self.data:
             print("Movie ID not found!")
             return False
         
-        movie = self.data[movie_id]
-        print(f"\nMovie: {movie.get('title', 'Unknown Title')}")
+        # Auto-segment the new review
+        segmented_review = self._auto_segment_review(review_text)
         
-        if "reviews" in movie and movie["reviews"]:
-            print("Reviews:")
-            for i, review in enumerate(movie["reviews"]):
-                preview = review[:100] + "..." if len(review) > 100 else review
-                print(f"{i}: {preview}")
-            return True
-        else:
-            print("No reviews available for this movie.")
-            return False
-
-    def segment_review(self, movie_id, review_index):
-        """Segment a specific review and replace it in the data"""
-        if movie_id not in self.data:
-            print("Movie ID not found!")
-            return False
+        # Add to results.json using your existing structure
+        self._add_review_to_results(movie_id, segmented_review)
         
-        movie = self.data[movie_id]
-        if "reviews" not in movie or review_index >= len(movie["reviews"]):
-            print("Review index not found!")
-            return False
+        print(f"\nNew review added and auto-segmented:")
+        print(f"Original: {review_text}")
+        print(f"Segmented: {segmented_review}")
         
-        review = movie["reviews"][review_index]
-        clean_review = ''.join(filter(str.isalnum, review.lower()))
-        segmented_review = self.insert_spaces(clean_review)
-
-        # Replace the original review
-        movie["reviews"][review_index] = segmented_review
-        
-        print(f"\nOriginal review: {review}")
-        print(f"Segmented review: {segmented_review.capitalize()}")
+        # Auto-save after adding
+        self.save_reviews_data()
         
         return True
 
-    def segment_user_input(self):
-        """Segment user-provided text input and optionally save to file"""
-        user_text = input("\nEnter the text you want to segment: ").strip()
+    def _add_review_to_results(self, movie_id, segmented_review):
+        """Add segmented review to existing results.json structure"""
+        # If movie doesn't exist in results.json, create the structure
+        if movie_id not in self.result_data:
+            # Get movie info from imdb.json
+            movie_info = self.data.get(movie_id, {})
+            self.result_data[movie_id] = {
+                "name": movie_info.get("title", "Unknown Title"),
+                "poster": movie_info.get("poster", ""),
+                "description": movie_info.get("description", ""),
+                "rating": movie_info.get("rating", 0),
+                "genres": movie_info.get("genres", []),
+                "date_published": movie_info.get("date_published", ""),
+                "keywords": movie_info.get("keywords", []),
+                "reviews": []  # Start with empty reviews list
+            }
         
-        if not user_text:
-            print("No text provided!")
-            return
+        # Add the new segmented review to the reviews array
+        if "reviews" not in self.result_data[movie_id]:
+            self.result_data[movie_id]["reviews"] = []
         
-        clean_text = ''.join(filter(str.isalnum, user_text.lower()))
-        segmented_text = self.insert_spaces(clean_text)
-        
-        print(f"\nOriginal text: {user_text}")
-        print(f"Segmented text: {segmented_text.capitalize()}")
-        
-        self._save_user_segmentation(user_text, segmented_text)
+        self.result_data[movie_id]["reviews"].append(segmented_review)
+        print(f"Added review to results.json for movie: {self.result_data[movie_id]['name']}")
 
-    def _save_user_segmentation(self, original_text, segmented_text):
-        """Save user segmentation to file"""
-        save_option = input("\nSave this segmentation? (y/n): ").strip().lower()
-        if save_option != 'y':
-            return
-        
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        user_entry = {
-            "timestamp": timestamp,
-            "original_text": original_text,
-            "segmented_text": segmented_text
-        }
-        
+    def save_reviews_data(self):
+        """Auto-save all data including reviews and results.json"""
+        # Save results.json
         try:
-            with open('data/user_segmentations.json', 'r', encoding='utf-8') as f:
-                user_data = json.load(f)
-        except FileNotFoundError:
-            user_data = []
-        
-        user_data.append(user_entry)
-        
-        with open('data/user_segmentations.json', 'w', encoding='utf-8') as f:
-            json.dump(user_data, f, ensure_ascii=False, indent=2)
-        
-        print("Segmentation saved to data/user_segmentations.json")
-
-    def view_user_segmentations(self):
-        """View previously saved user segmentations"""
-        try:
-            with open('data/user_segmentations.json', 'r', encoding='utf-8') as f:
-                user_data = json.load(f)
-            
-            if not user_data:
-                print("No user segmentations found.")
-                return
-            
-            print("\n=== Previously Saved User Segmentations ===")
-            for i, entry in enumerate(user_data, 1):
-                print(f"\n--- Entry {i} ---")
-                print(f"Time: {entry['timestamp']}")
-                print(f"Original: {entry['original_text']}")
-                print(f"Segmented: {entry['segmented_text']}")
-                
-        except FileNotFoundError:
-            print("No user segmentations file found.")
-
-    def save_data(self):
-        """Save the modified data back to the original file"""
-        if not self.data:
-            print("No data to save.")
-            return False
-        
-        try:
-            with open('data/imdb_no_spaces_reviews.json', 'w', encoding='utf-8') as f:
-                json.dump(self.data, f, ensure_ascii=False, indent=2)
-            print("Changes saved successfully!")
+            with open('results/results.json', 'w', encoding='utf-8') as f:
+                json.dump(self.result_data, f, ensure_ascii=False, indent=2)
+            print("results.json updated successfully!")
             return True
         except Exception as e:
-            print(f"Error saving data: {e}")
+            print(f"Error saving results.json: {e}")
             return False
 
     def run(self):
-        """Main application loop"""
+        """Main application loop - simplified for adding new reviews"""
         while True:
             print("\n=== Review Segmentation Tool ===")
             print("1. List all movies")
-            print("2. Select movie and segment review")
-            print("3. Segment user input text")
-            print("4. View saved user segmentations")
-            print("5. Save changes and exit")
-            print("6. Exit without saving")
+            print("2. Add new review to movie (auto-segment & auto-save)")
+            print("3. Exit")
             
-            choice = input("\nEnter your choice (1-6): ").strip()
+            choice = input("\nEnter your choice (1-3): ").strip()
             
             if choice == "1":
                 self.display_movies()
@@ -206,39 +201,41 @@ class ReviewSegmenter:
             elif choice == "2":
                 self.display_movies()
                 try:
-                    movie_index = int(input("\nEnter movie index: "))
+                    movie_index = int(input("\nEnter movie index to add review to: "))
                     movie_id = list(self.data.keys())[movie_index]
                     
-                    if self.display_reviews(movie_id):
-                        review_index = int(input("\nEnter review index to segment: "))
-                        if self.segment_review(movie_id, review_index):
-                            print("Review segmented successfully!")
-                        else:
-                            print("Failed to segment review.")
+                    review_text = input("Enter your new review: ").strip()
+                    if not review_text:
+                        print("No review text provided!")
+                        continue
                     
+                    if self.add_new_review(movie_id, review_text):
+                        print("Review added, auto-segmented, and auto-saved successfully!")
+                        
                 except (ValueError, IndexError):
-                    print("Invalid input! Please enter valid numbers.")
+                    print("Invalid input!")
             
             elif choice == "3":
-                self.segment_user_input()
-            
-            elif choice == "4":
-                self.view_user_segmentations()
-            
-            elif choice == "5":
-                if self.save_data():
-                    break
-            
-            elif choice == "6":
-                print("Exiting without saving.")
+                print("Exiting.")
                 break
             
             else:
-                print("Invalid choice! Please enter 1-6.")
+                print("Invalid choice! Please enter 1-3.")
 
 
 def main():
+    # Create both data and results directories if they don't exist
+    os.makedirs('data', exist_ok=True)
+    os.makedirs('results', exist_ok=True)
+    
     segmenter = ReviewSegmenter()
+    
+    # Display info about existing results.json
+    if segmenter.result_data:
+        movie_count = len(segmenter.result_data)
+        total_reviews = sum(len(movie.get("reviews", [])) for movie in segmenter.result_data.values())
+        print(f"Loaded existing results.json with {movie_count} movies and {total_reviews} reviews")
+    
     segmenter.run()
 
 
